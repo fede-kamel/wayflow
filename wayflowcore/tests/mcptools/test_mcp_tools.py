@@ -2230,22 +2230,30 @@ def unresponsive_server_url():
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(("127.0.0.1", 0))
     server.listen(8)
+    # Closing the socket does not wake up a blocked `accept`, so poll and stop explicitly: the
+    # test suite fails when a thread is still running at the end of the session
+    server.settimeout(0.1)
     accepted: List[socket.socket] = []
+    stop_accepting = threading.Event()
 
-    def accept_forever() -> None:
-        while True:
+    def accept_until_stopped() -> None:
+        while not stop_accepting.is_set():
             try:
                 connection, _ = server.accept()
+            except TimeoutError:
+                continue
             except OSError:
                 return
             accepted.append(connection)
 
-    thread = threading.Thread(target=accept_forever, daemon=True)
+    thread = threading.Thread(target=accept_until_stopped, daemon=True)
     thread.start()
     try:
         yield f"http://127.0.0.1:{server.getsockname()[1]}/mcp"
     finally:
         shutdown_mcp_async_runtime()
+        stop_accepting.set()
+        thread.join()
         server.close()
         for connection in accepted:
             connection.close()
