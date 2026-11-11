@@ -243,7 +243,7 @@ def streamablehttp_client_transport_mtls(
 def run_toolbox_test(transport: ClientTransport) -> None:
     toolbox = MCPToolBox(client_transport=transport)
     tools = toolbox.get_tools()  # need
-    assert len(tools) == 18
+    assert len(tools) == 19
     mcp_tool = next(t for t in tools if t.name == "fooza_tool")
     assert mcp_tool.run(a=1, b=2) == "7"
     assert mcp_tool.input_descriptors == [IntegerProperty(name="a"), IntegerProperty(name="b")]
@@ -879,8 +879,8 @@ async def test_mcp_toolboxes_from_different_servers_do_not_conflict_in_same_agen
     with _register_conversation(conversation):
         # We call this method to actively retrieve tools from the lazy toolboxes
         all_agent_tools = await AgentConversationExecutor._collect_tools(config=agent, curr_iter=0)
-    # 17 from toolbox 1, 2 from toolbox 2
-    assert len(all_agent_tools) == 18 + 2
+    # 19 from toolbox 1, 2 from toolbox 2
+    assert len(all_agent_tools) == 19 + 2
     # Ensure that one tool from the first toolbox and one from the second are in the list
     tool_names = set(tool.name for tool in all_agent_tools)
     assert all(tool_name in tool_names for tool_name in ["fooza_tool", "alt_mul_tool"])
@@ -2271,3 +2271,22 @@ def test_mcp_tool_call_against_unresponsive_server_raises_timeout_error(
     with pytest.raises(TimeoutError, match="did not answer in time"):
         tool.run(query="hello")
     assert time.monotonic() - start < 30
+
+
+def test_mcp_tool_call_timing_out_after_initialization_raises_timeout_error(
+    with_mcp_enabled, streamablehttp_mcp_server_http
+) -> None:
+    # The session initializes fine and a first call succeeds; only the `tools/call` request of
+    # the slow tool times out, and the SDK then raises a plain McpError (no ExceptionGroup)
+    transport = StreamableHTTPTransport(
+        url=streamablehttp_mcp_server_http,
+        session_parameters=SessionParameters(read_timeout_seconds=1),
+    )
+    fooza_tool = MCPTool(name="fooza_tool", client_transport=transport)
+    slow_tool = MCPTool(name="slow_tool", client_transport=transport)
+    assert fooza_tool.run(a=1, b=2) == "7"
+
+    start = time.monotonic()
+    with pytest.raises(TimeoutError, match="did not answer in time"):
+        slow_tool.run()
+    assert time.monotonic() - start < 10

@@ -180,6 +180,11 @@ def _catch_and_raise_mcp_connection_errors() -> Any:
     except ExceptionGroup as e:
         _raise_if_translatable_mcp_error(e)
         raise e
+    except Exception as e:
+        # Once the session is initialized, failing requests (e.g. a `tools/call` or `tools/list`
+        # timing out) raise plain exceptions such as `McpError` instead of exception groups
+        _raise_if_translatable_mcp_error(e)
+        raise e
 
 
 def _extract_text_content_from_tool_result(result: types.CallToolResult) -> str:
