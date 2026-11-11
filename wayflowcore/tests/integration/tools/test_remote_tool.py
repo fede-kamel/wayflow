@@ -303,3 +303,62 @@ def test_remote_tool_with_single_text_output_keeps_raw_response(patched_request,
         output_descriptors=[output_descriptor],
     )
     assert tool.run() == '{"full": "response"}'
+
+
+@patch.object(
+    httpx2.AsyncClient, "request", return_value=MockResponse.from_object({"full": "response"})
+)
+def test_remote_tool_without_output_descriptors_returns_raw_response(patched_request):
+    tool = RemoteTool(
+        name="get_example_tool",
+        description="does a GET request to the example domain",
+        url="https://example.com/endpoint",
+        method="GET",
+    )
+    assert [output.name for output in tool.output_descriptors] == ["http_response"]
+    assert tool.run() == '{"full": "response"}'
+
+
+@patch.object(
+    httpx2.AsyncClient,
+    "request",
+    return_value=MockResponse.from_object(
+        {"http_status_code": "created", "http_response": {"id": 7}, "count": 3}
+    ),
+)
+def test_remote_tool_with_multiple_outputs_named_like_api_call_step_outputs(patched_request):
+    # `http_status_code` and `http_response` are also outputs of the underlying ApiCallStep: the
+    # values extracted from the response must not be dropped or replaced by the step outputs.
+    tool = RemoteTool(
+        name="create_tool",
+        description="creates a thing",
+        url="https://example.com/create",
+        method="POST",
+        output_descriptors=[
+            StringProperty(name="http_status_code"),
+            AnyProperty(name="http_response"),
+            IntegerProperty(name="count"),
+        ],
+    )
+    assert [output.name for output in tool.output_descriptors] == [
+        "http_status_code",
+        "http_response",
+        "count",
+    ]
+    assert tool.run() == {"http_status_code": "created", "http_response": {"id": 7}, "count": 3}
+
+
+@pytest.mark.parametrize("output_name", ["http_status_code", "http_response"])
+@patch.object(httpx2.AsyncClient, "request", return_value=MockResponse.from_object(42))
+def test_remote_tool_with_single_typed_output_named_like_api_call_step_output(
+    patched_request, output_name
+):
+    tool = RemoteTool(
+        name="count_tool",
+        description="counts things",
+        url="https://example.com/count",
+        method="GET",
+        output_descriptors=[IntegerProperty(name=output_name)],
+    )
+    assert [output.name for output in tool.output_descriptors] == [output_name]
+    assert tool.run() == 42
