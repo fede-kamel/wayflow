@@ -10,17 +10,8 @@ New features
 Improvements
 ^^^^^^^^^^^^
 
-* **Switched to ``httpx2``:**
-
-  WayFlow now uses ``httpx2`` instead of ``httpx`` for its core HTTP clients.
-
 Bug fixes
 ^^^^^^^^^
-
-* **Structured tool argument normalization**
-
-  Tool-call normalization now applies ``additionalProperties`` only to undeclared object fields,
-  preventing declared values from being replaced with booleans.
 
 * **Clear errors when an MCP server does not answer**
 
@@ -30,6 +21,39 @@ Bug fixes
   remedy, and MCP error messages are read defensively. The ``read_timeout_seconds`` of the client
   transport ``session_parameters`` is now converted to and from Agent Spec instead of being
   dropped, so Agent Spec configurations can shorten the default 60 seconds timeout.
+
+WayFlow 26.3.1
+--------------
+
+Improvements
+^^^^^^^^^^^^
+
+* **GPT reasoning with tools**
+
+  WayFlow now automatically uses the Responses API for GPT-5.4 and newer models on OpenAI and OCI when using tools with reasoning enabled to maintain compatibility with newer OpenAI models, and fixes an OCI streaming error.
+
+* **Switched to ``httpx2``:**
+
+  WayFlow now uses ``httpx2`` instead of ``httpx`` for its core HTTP clients.
+
+Bug fixes
+^^^^^^^^^
+
+* **Preserved thought text in ReAct parsing**
+
+  ReAct parsing now removes the exact ``## Thought:`` marker, preserving thought text that starts
+  with marker characters such as the ``Th`` in ``The``.
+
+* **Structured tool argument normalization**
+
+  Tool-call normalization now applies ``additionalProperties`` only to undeclared object fields,
+  preventing declared values from being replaced with booleans.
+
+* **Optional nested object properties with defaults**
+
+  ``ObjectProperty`` values that omit nested properties having a ``default_value`` are now accepted
+  as ``Flow`` inputs, between steps and in ``Agent`` tool calls. The omitted properties, including
+  nested ones, take their defaults before the step or tool receives the value.
 
 WayFlow 26.3.0
 --------------
